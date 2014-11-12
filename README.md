@@ -1,6 +1,6 @@
 # gsd
 
-gsd is a lightweight, fluent SQL data access framework. It supports various types of database, like mysql/mssql/sqlite etc.
+gsd is a Simple, fluent SQL data access framework. It supports various types of database, like mysql/mssql/sqlite etc.
 
 ## Install
 
@@ -12,7 +12,7 @@ $ go get github.com/cuigh/gsd
 
 ## Usage
 
-gsd's api is very simular to native SQL sytax.
+gsd's API is very simular to native SQL sytax.
 
 ## Configure
 
@@ -89,9 +89,8 @@ if err := r.All(&objs); err != nil {
 
 ```
 err := db.Transact(func(tx Transaction) error {
-	obj := Category{}
-
-	err := db.Execute("SELECT ID, NAME, ENTER_TIME FROM Category WHERE ID=?", 2).Row().ScanObj(&obj)
+	obj := Category{}	
+	err := tx.Execute("SELECT ID, NAME, ENTER_TIME FROM Category WHERE ID=?", 2).Row().ScanObj(&obj)
 	if err != nil{
 		return err
 	}
@@ -100,7 +99,7 @@ err := db.Transact(func(tx Transaction) error {
 	v := gsd.UpdateValues{
 		"Name":        gsd.UV(obj.Name),
 	}
-	_, err = db.Update("Category").Set(v).Where(f).Result()
+	_, err = tx.Update("Category").Set(v).Where(f).Result()
 	return err
 })
 if err != nil {
