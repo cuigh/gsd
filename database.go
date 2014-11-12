@@ -102,7 +102,7 @@ func newDatabase(cfg *Config) (*Database, error) {
 	db = &Database{}
 	switch cfg.Provider {
 	case "mssql":
-		db.b = nil
+		db.b = &mssqlBuilder{}
 	case "mysql":
 		db.b = &mysqlBuilder{}
 	default:
