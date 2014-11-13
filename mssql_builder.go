@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+/********** mssqlBuilder **********/
+
 // SQL Server 2012+ builder
 type mssqlBuilder struct {
 }
@@ -20,7 +22,7 @@ func (this *mssqlBuilder) BuildInsert(ctx *buildContext, info *insertInfo) error
 		} else {
 			ctx.AppendSql(",")
 		}
-		ctx.AppendSql(k)
+		ctx.AppendSqlF("[%s]", k)
 		ctx.AddParam(v)
 	}
 
@@ -294,6 +296,254 @@ func (this *mssqlBuilder) BuildTwoColumnFilter(ctx *buildContext, f *twoColumnFi
 	default:
 		ctx.AppendSqlF("[%s].[%s]=[%s].[%s]", f.table1.Prefix(), f.column1, f.table2.Prefix(), f.column2)
 	}
+
+	return nil
+}
+
+/********** mssqlBuilder **********/
+
+// SQL Server 2005+ builder
+type mssql2005Builder struct {
+	mssqlBuilder
+}
+
+// BuildSelect build query string and parameters for select action
+func (this *mssql2005Builder) BuildSelect(ctx *buildContext, info *selectInfo) error {
+	if info.skip == 0 {
+		return this.buildSelectNoPage(ctx, info)
+	} else {
+		return this.buildSelectPage(ctx, info)
+	}
+}
+
+// BuildSelect build query string and parameters for select action
+func (this *mssql2005Builder) buildSelectNoPage(ctx *buildContext, info *selectInfo) error {
+	ctx.AppendSql("SELECT ")
+
+	if info.distinct {
+		ctx.AppendSql("DISTINCT ")
+	}
+
+	// LIMIT
+	if info.take > 0 {
+		ctx.AppendSqlF("TOP %d ", info.take)
+	}
+
+	// SELECT
+	for i, c := range info.columns {
+		if i > 0 {
+			ctx.AppendSql(",")
+		}
+
+		switch v := c.(type) {
+		case *normalColumn:
+			if v.table != nil {
+				ctx.AppendSqlF("[%s].", v.table.Prefix())
+			}
+			ctx.AppendSqlF("[%s]", v.column)
+			if v.alias != "" {
+				ctx.AppendSql(" AS ", v.alias)
+			}
+		case *exprColumn:
+			ctx.AppendSql(v.expr)
+			if v.alias != "" {
+				ctx.AppendSql(" AS ", v.alias)
+			}
+		}
+	}
+
+	// FROM
+	ctx.AppendSqlF(" FROM [%s]", info.table.Name())
+	if info.table.Alias() != "" {
+		ctx.AppendSql(" AS ", info.table.Alias())
+	}
+
+	// JOIN
+	for _, j := range info.joins {
+		ctx.AppendSqlF(" %s [%s]", j.jt, j.t.Name())
+		if j.t.Alias() != "" {
+			ctx.AppendSql(" AS ", j.t.Alias())
+		}
+		ctx.AppendSql(" ON ")
+		this.BuildFilters(ctx, j.on)
+	}
+
+	if info.where != nil {
+		ctx.AppendSql(" WHERE ")
+		this.BuildFilters(ctx, info.where)
+	}
+
+	// GROUP BY
+	if len(info.groups) > 0 {
+		ctx.AppendSql(" GROUP BY ")
+		for i, g := range info.groups {
+			if i > 0 {
+				ctx.AppendSql(",")
+			}
+			for j, col := range g.columns {
+				if j > 0 {
+					ctx.AppendSql(",")
+				}
+				if g.table != nil {
+					ctx.AppendSqlF("[%s].", g.table.Prefix())
+				}
+				ctx.AppendSqlF("[%s]", col)
+			}
+		}
+
+		if info.having != nil {
+			ctx.AppendSql(" HAVING ")
+			this.BuildFilters(ctx, info.having)
+		}
+	}
+
+	// ORDER BY
+	if len(info.orders) > 0 {
+		ctx.AppendSql(" ORDER BY ")
+		for i, order := range info.orders {
+			if i > 0 {
+				ctx.AppendSql(",")
+			}
+			for j, col := range order.columns {
+				if j > 0 {
+					ctx.AppendSql(",")
+				}
+				if order.table != nil {
+					ctx.AppendSqlF("[%s].", order.table.Prefix())
+				}
+				ctx.AppendSqlF("[%s]", col)
+			}
+			ctx.AppendSqlF(" %s", order.st)
+		}
+	}
+
+	return nil
+}
+
+// BuildSelect build query string and parameters for select action
+func (this *mssql2005Builder) buildSelectPage(ctx *buildContext, info *selectInfo) error {
+	ctx.AppendSql("SELECT ")
+
+	// SELECT
+	for i, c := range info.columns {
+		if i > 0 {
+			ctx.AppendSql(",")
+		}
+
+		switch v := c.(type) {
+		case *normalColumn:
+			if v.table != nil {
+				ctx.AppendSqlF("[%s].", v.table.Prefix())
+			}
+			ctx.AppendSqlF("[%s]", v.column)
+			if v.alias != "" {
+				ctx.AppendSql(" AS ", v.alias)
+			}
+		case *exprColumn:
+			ctx.AppendSql(v.expr)
+			if v.alias != "" {
+				ctx.AppendSql(" AS ", v.alias)
+			}
+		}
+	}
+
+	ctx.AppendSql(" FROM (SELECT ")
+
+	if info.distinct {
+		ctx.AppendSql("DISTINCT ")
+	}
+
+	// SELECT
+	for i, c := range info.columns {
+		if i > 0 {
+			ctx.AppendSql(",")
+		}
+
+		switch v := c.(type) {
+		case *normalColumn:
+			if v.table != nil {
+				ctx.AppendSqlF("[%s].", v.table.Prefix())
+			}
+			ctx.AppendSqlF("[%s]", v.column)
+			if v.alias != "" {
+				ctx.AppendSql(" AS ", v.alias)
+			}
+		case *exprColumn:
+			ctx.AppendSql(v.expr)
+			if v.alias != "" {
+				ctx.AppendSql(" AS ", v.alias)
+			}
+		}
+	}
+
+	// ORDER BY
+	ctx.AppendSql(",ROW_NUMBER() OVER(")
+	if len(info.orders) > 0 {
+		ctx.AppendSql("ORDER BY ")
+		for i, order := range info.orders {
+			if i > 0 {
+				ctx.AppendSql(",")
+			}
+			for j, col := range order.columns {
+				if j > 0 {
+					ctx.AppendSql(",")
+				}
+				if order.table != nil {
+					ctx.AppendSqlF("[%s].", order.table.Prefix())
+				}
+				ctx.AppendSqlF("[%s]", col)
+			}
+			ctx.AppendSqlF(" %s", order.st)
+		}
+	}
+	ctx.AppendSql(") AS _N")
+
+	// FROM
+	ctx.AppendSqlF(" FROM [%s]", info.table.Name())
+	if info.table.Alias() != "" {
+		ctx.AppendSql(" AS ", info.table.Alias())
+	}
+
+	// JOIN
+	for _, j := range info.joins {
+		ctx.AppendSqlF(" %s [%s]", j.jt, j.t.Name())
+		if j.t.Alias() != "" {
+			ctx.AppendSql(" AS ", j.t.Alias())
+		}
+		ctx.AppendSql(" ON ")
+		this.BuildFilters(ctx, j.on)
+	}
+
+	if info.where != nil {
+		ctx.AppendSql(" WHERE ")
+		this.BuildFilters(ctx, info.where)
+	}
+
+	// GROUP BY
+	if len(info.groups) > 0 {
+		ctx.AppendSql(" GROUP BY ")
+		for i, g := range info.groups {
+			if i > 0 {
+				ctx.AppendSql(",")
+			}
+			for j, col := range g.columns {
+				if j > 0 {
+					ctx.AppendSql(",")
+				}
+				if g.table != nil {
+					ctx.AppendSqlF("[%s].", g.table.Prefix())
+				}
+				ctx.AppendSqlF("[%s]", col)
+			}
+		}
+
+		if info.having != nil {
+			ctx.AppendSql(" HAVING ")
+			this.BuildFilters(ctx, info.having)
+		}
+	}
+
+	ctx.AppendSqlF(") AS _T WHERE _N>%d AND _N<=%d", info.skip, info.skip+info.take)
 
 	return nil
 }

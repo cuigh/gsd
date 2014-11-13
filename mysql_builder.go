@@ -19,7 +19,7 @@ func (this *mysqlBuilder) BuildInsert(ctx *buildContext, info *insertInfo) error
 		} else {
 			ctx.AppendSql(",")
 		}
-		ctx.AppendSql(k)
+		ctx.AppendSqlF("`%s`", k)
 		ctx.AddParam(v)
 	}
 
