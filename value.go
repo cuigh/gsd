@@ -9,10 +9,41 @@ import (
 
 // Scanner valid types: int64, float64, bool, []byte, string, time.Time, nil - for NULL values
 
+/********** NullTime **********/
+
 type NullInt64 sql.NullInt64
+
+// Scan implements the Scanner interface.
+func (this *NullInt64) Scan(value interface{}) (err error) {
+	return (*sql.NullInt64)(this).Scan(value)
+}
+
+/********** NullTime **********/
+
 type NullFloat64 sql.NullFloat64
+
+// Scan implements the Scanner interface.
+func (this *NullFloat64) Scan(value interface{}) (err error) {
+	return (*sql.NullFloat64)(this).Scan(value)
+}
+
+/********** NullTime **********/
+
 type NullBool sql.NullBool
+
+// Scan implements the Scanner interface.
+func (this *NullBool) Scan(value interface{}) (err error) {
+	return (*sql.NullBool)(this).Scan(value)
+}
+
+/********** NullTime **********/
+
 type NullString sql.NullString
+
+// Scan implements the Scanner interface.
+func (this *NullString) Scan(value interface{}) (err error) {
+	return (*sql.NullString)(this).Scan(value)
+}
 
 /********** NullTime **********/
 
