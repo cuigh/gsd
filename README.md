@@ -1,5 +1,7 @@
 # gsd
 
+> [DEPRECATED] This package now is a part of [auxo](https://github.com/cuigh/auxo), see [auxo/gsd](https://github.com/cuigh/auxo/tree/master/db/gsd).
+
 gsd is a Simple, fluent SQL data access framework. It supports various types of database, like mysql/mssql/sqlite etc.
 
 ## Install
